@@ -1,0 +1,128 @@
+import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+from scipy.optimize import curve_fit
+from datetime import datetime
+from pathlib import Path
+
+list_sustancias = []
+list_sustancias_exito = []
+list_sustancias_fallo = []
+
+dict_datos = {}
+dict_params = {}
+dict_cov = {}
+dict_P_modelo = {}
+
+#Ec.Antoine: log10(P) = A - (B / (T+C)). Encontrar parametros A,B,C.
+def model(x,A,B,C):
+    return A - B/(x + C)
+
+cantidad_sustancia = None
+
+while type(cantidad_sustancia) != int:
+    try:
+        cantidad_sustancia = int(input('¿Cuantas sustancias quieres analizar? ')) 
+
+    except ValueError:
+        print('Introduciste una cantidad de sustancias incorrecta')
+
+directorio = Path(__file__).parent
+ruta_input = directorio.parent / 'datos' / 'input'
+lista_archivos = ruta_input.glob('*.txt')
+
+for archivo in lista_archivos:
+    sustancia = archivo.stem
+    dict_datos[sustancia] = pd.read_csv(str(archivo), sep = '\t') #Coge el primer documento de datos
+
+for archivo in lista_archivos: #Aquí, archivo es un elemento de lista_archivos, que es igual a, por ejemplo, ['../Datos\\Agua.txt','../Datos\\Nitrogen.txt].
+
+    list_sustancias.append(sustancia) 
+    dict_datos[sustancia] = pd.read_csv(archivo, sep = '\t') #Mira el nombre de la variable archivo, lo busca en la carpeta y lo pasa a un df
+
+    P_exp = dict_datos[sustancia]['Pressure (MPa)']
+    T_exp = dict_datos[sustancia]['Temperature (K)']
+
+    #Tener en dict_Press todas las Presiones y en dict_Temp todas las Temperaturas (organizados por sustancia), y asignar cada uno a P y T respectivamente
+    #Guardar todos los parámetros A, B y C y las covarianzas de todas las sustancias en diccionarios donde la key es la sustancia.
+    #Del diccionario de dict_Temp, escogemos la sustancia i de la lista de sustancias, donde i es range(cantidad_sustancia)
+
+    try:
+        params, cov = curve_fit(model,T_exp, np.log10(P_exp), p0= [10,2000,-30])
+    
+        dict_params[sustancia] = params
+        A, B, C = dict_params[sustancia]
+        dict_cov[sustancia] = cov
+        #Añadimos el value params con el key sustancia al dict_params --- de manera similar con cov. 
+        #Asignamos cada coeficiente de Antoine de la sustancia list_sustancia[i] a A, B y C.
+        #print('A:', A,'B:',B,'C:',C)
+        #Del dict_params accedemos al key sustancia, lo cual nos dará el value de la sustancia sustancia
+
+        dict_P_modelo[sustancia] = 10**(A - B/(T_exp + C))
+        P_modelo = dict_P_modelo[sustancia]
+        #Calculamos los datos del modelo teórico
+
+        fig, axs = plt.subplots(2,2, constrained_layout = True)
+        fig.suptitle(f'Análisis P-T - {sustancia}', fontsize = 16, fontweight = 'bold')
+
+        #Preparar [0,0] gráfico
+        axs[0,0].plot(T_exp, P_exp, 'r')
+        axs[0,0].set_title('P-T Experimentales')
+        axs[0,0].set_xlabel('Temperatura (K)')
+        axs[0,0].set_ylabel('Presión (MPa)')
+
+        #Preparar [0,1] gráfico
+        axs[0,1].plot(T_exp, P_modelo, 'b') #T_exp = T_teórica (Al calcular dict_P_modelo[sustancia] = P_modelo usamos T_exp)
+        axs[0,1].set_title('P-T Teóricas')
+        axs[0,1].set_xlabel('Temperatura (K)')
+        axs[0,1].set_ylabel('Presión (MPa)')
+
+        #Preparar [1,0] gráfico
+        axs[1,0].plot(T_exp, P_exp, color='red', label='Experimental')
+        axs[1,0].plot(T_exp, P_modelo, color ='blue', label = 'Teórica')
+        axs[1,0].set_title('Superposición gráfica')
+        axs[1,0].set_xlabel('Temperatura (K)')
+        axs[1,0].set_ylabel('Presión (MPa)')
+        axs[1,0].legend()
+
+        axs[1,1].remove()
+
+        directorio = Path(__file__).parent
+        ruta_output = directorio.parent / 'datos' / 'output'
+        ruta_archivo = ruta_output / f'Grafico de la sustancia - {sustancia}.png'
+        ruta_output.mkdir(parents = True, exist_ok = True)
+        plt.savefig(ruta_archivo)
+        plt.close(fig) # <-- Se cierra debido a que si se mantiene abierto durante el análisis de muchas sustancias, consume mucha RAM
+        #plt.show()
+
+        #RMSE y Rquad
+        RMSE = np.sqrt((1/len(dict_datos[sustancia]))*np.sum((P_exp-P_modelo)**2))
+        Rquad = 1 - (np.sum((P_exp - P_modelo)**2) / np.sum((P_exp - np.mean(P_exp))**2))
+
+        #print('El RMSE es de:',RMSE) print('El R cuadrado es de:',Rquad)
+
+        fecha_hoy = datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')
+        with open(f'./datos/output/Coeficientes de Antoine - {sustancia}.txt','w') as file:
+            text =  (
+                    f'Fecha del analisis: {fecha_hoy}\n'
+                    f'El coeficiente A: {A:.4f}\n'
+                    f'El coeficiente B: {B:.4f}\n'
+                    f'El coeficiente C: {C:.4f}\n'
+                    f'Estos coeficientes son de la sustancia: {sustancia}\n'
+                    f'Estos coeficientes fueron encontrados con un R cuadrado de {Rquad:.4f} y un RMSE de {RMSE:.4f}\n'
+            )
+            file.write(text)
+
+        list_sustancias_exito.append(sustancia)
+
+    except (RuntimeError, ValueError):
+        print(f'No se pudieron calcular los parámetros de la sustancia {sustancia}')
+        list_sustancias_fallo.append(sustancia)
+
+        continue
+
+if len(list_sustancias_fallo) > 0:
+    print(f'Las siguientes sustancias fueron analizadas y no se consiguió finalizar el análisis {list_sustancias_fallo}')
+
+if len(list_sustancias_fallo) + len(list_sustancias_exito) != len(list_sustancias):
+    print('No se analizaron todas las sustancias entradas')

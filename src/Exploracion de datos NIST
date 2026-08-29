@@ -18,6 +18,11 @@ dict_P_modelo = {}
 def model(x,A,B,C):
     return A - B/(x + C)
 
+for i in range(3):
+    A = float(input('Aproximación inicial de A. (Sugerencia: A = 10): '))
+    B = float(input('Aproximación inicial de B. (Sugerencia: B = 2000): '))
+    C = float(input('Aproximación inicial de C. (Sugerencia: C = -30): '))
+
 directorio = Path(__file__).parent
 ruta_input = directorio.parent / 'datos' / 'input'
 lista_archivos = ruta_input.glob('*.txt')
@@ -32,7 +37,7 @@ for archivo in lista_archivos:
     T_exp = dict_datos[sustancia]['Temperature (K)']
 
     try:
-        params, cov = curve_fit(model,T_exp, np.log10(P_exp), p0= [10,2000,-30])
+        params, cov = curve_fit(model,T_exp, np.log10(P_exp), p0=)
     
         dict_params[sustancia] = params
         A, B, C = dict_params[sustancia]
@@ -66,7 +71,6 @@ for archivo in lista_archivos:
 
         axs[1,1].remove()
 
-        directorio = Path(__file__).parent
         ruta_output = directorio.parent / 'datos' / 'output'
         ruta_archivo_png = ruta_output / f'Grafico de la sustancia - {sustancia}.png'
         ruta_output.mkdir(parents = True, exist_ok = True)

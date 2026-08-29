@@ -18,26 +18,13 @@ dict_P_modelo = {}
 def model(x,A,B,C):
     return A - B/(x + C)
 
-cantidad_sustancia = None
-
-while type(cantidad_sustancia) != int:
-    try:
-        cantidad_sustancia = int(input('¿Cuantas sustancias quieres analizar? ')) 
-
-    except ValueError:
-        print('Introduciste una cantidad de sustancias incorrecta')
-
 directorio = Path(__file__).parent
 ruta_input = directorio.parent / 'datos' / 'input'
 lista_archivos = ruta_input.glob('*.txt')
 
-for archivo in lista_archivos:
-    sustancia = archivo.stem
-    dict_datos[sustancia] = pd.read_csv(str(archivo), sep = '\t') #Coge el primer documento de datos
-
 for archivo in lista_archivos: #Aquí, archivo es un elemento de lista_archivos, que es igual a, por ejemplo, ['../Datos\\Agua.txt','../Datos\\Nitrogen.txt].
-
-    list_sustancias.append(sustancia) 
+    sustancia = archivo.stem
+    list_sustancias.append(sustancia)
     dict_datos[sustancia] = pd.read_csv(archivo, sep = '\t') #Mira el nombre de la variable archivo, lo busca en la carpeta y lo pasa a un df
 
     P_exp = dict_datos[sustancia]['Pressure (MPa)']
@@ -89,9 +76,9 @@ for archivo in lista_archivos: #Aquí, archivo es un elemento de lista_archivos,
 
         directorio = Path(__file__).parent
         ruta_output = directorio.parent / 'datos' / 'output'
-        ruta_archivo = ruta_output / f'Grafico de la sustancia - {sustancia}.png'
+        ruta_archivo_png = ruta_output / f'Grafico de la sustancia - {sustancia}.png'
         ruta_output.mkdir(parents = True, exist_ok = True)
-        plt.savefig(ruta_archivo)
+        plt.savefig(ruta_archivo_png)
         plt.close(fig) # <-- Se cierra debido a que si se mantiene abierto durante el análisis de muchas sustancias, consume mucha RAM
         #plt.show()
 
@@ -101,8 +88,10 @@ for archivo in lista_archivos: #Aquí, archivo es un elemento de lista_archivos,
 
         #print('El RMSE es de:',RMSE) print('El R cuadrado es de:',Rquad)
 
+        ruta_archivo_txt = ruta_output / f'Coeficientes de Antoine - {sustancia}.txt'
+
         fecha_hoy = datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')
-        with open(f'./datos/output/Coeficientes de Antoine - {sustancia}.txt','w') as file:
+        with open(f'{ruta_archivo_txt} - {sustancia}.txt','w') as file:
             text =  (
                     f'Fecha del analisis: {fecha_hoy}\n'
                     f'El coeficiente A: {A:.4f}\n'

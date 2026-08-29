@@ -1,0 +1,6 @@
+Fecha del analisis: 29/08/2026 a las 22:48:24
+El coeficiente A: 2.8652
+El coeficiente B: 291.2456
+El coeficiente C: -1.9623
+Estos coeficientes son de la sustancia: Nitrogen
+Estos coeficientes fueron encontrados con un R cuadrado de 0.9998 y un RMSE de 0.0146

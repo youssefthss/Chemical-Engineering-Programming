@@ -1,6 +1,0 @@
-Fecha del analisis: 29/08/2026 a las 22:48:23
-El coeficiente A: 4.1521
-El coeficiente B: 1711.6793
-El coeficiente C: -40.7288
-Estos coeficientes son de la sustancia: Agua
-Estos coeficientes fueron encontrados con un R cuadrado de 0.9996 y un RMSE de 0.1185

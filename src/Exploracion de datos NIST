@@ -4,47 +4,42 @@ from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 from datetime import datetime
 from pathlib import Path
+import openpyxl
 
 list_sustancias = []
 list_sustancias_exito = []
 list_sustancias_fallo = []
-
-dict_datos = {}
-dict_params = {}
-dict_cov = {}
-dict_P_modelo = {}
+list_resumen = []
 
 #Ec.Antoine: log10(P) = A - (B / (T+C))
 def model(x,A,B,C):
     return A - B/(x + C)
 
-A = float(input('Aproximación inicial de A. (Sugerencia: A = 10): '))
-B = float(input('Aproximación inicial de B. (Sugerencia: B = 2000): '))
-C = float(input('Aproximación inicial de C. (Sugerencia: C = -30): '))
+A = float(input('Aproximación inicial de A. (Sugerencia: A = 10): ') or 10)
+B = float(input('Aproximación inicial de B. (Sugerencia: B = 2000): ') or 2000)
+C = float(input('Aproximación inicial de C. (Sugerencia: C = -30): ') or -30)
 semilla = [A,B,C]
 
 directorio = Path(__file__).parent
-ruta_input = directorio.parent / 'datos' / 'input'
+ruta_input = directorio.parent / 'datos' / 'input' #ruta_input es la ruta absoluta desde 'C:' hasta la carpeta 'input'.
+ruta_output = directorio.parent / 'datos' / 'output'
+ruta_output.mkdir(parents = True, exist_ok = True) #Si no existe una carpeta 'output' dentro de 'datos', la crea.
 lista_archivos = ruta_input.glob('*.txt')
 #Cada elemento de lista_archivos es una ruta absoluta
 
 for archivo in lista_archivos: 
     sustancia = archivo.stem
     list_sustancias.append(sustancia)
-    dict_datos[sustancia] = pd.read_csv(archivo, sep = '\t') 
-
-    P_exp = dict_datos[sustancia]['Pressure (MPa)']
-    T_exp = dict_datos[sustancia]['Temperature (K)']
+    datos = pd.read_csv(archivo, sep = '\t') 
+    P_exp = datos['Pressure (MPa)']
+    T_exp = datos['Temperature (K)']
 
     try:
         params, cov = curve_fit(model,T_exp, np.log10(P_exp), p0 = semilla)
     
-        dict_params[sustancia] = params
-        A, B, C = dict_params[sustancia]
-        dict_cov[sustancia] = cov
+        A, B, C = params
 
-        dict_P_modelo[sustancia] = 10**(A - B/(T_exp + C))
-        P_modelo = dict_P_modelo[sustancia]
+        P_modelo = 10**(A - B/(T_exp + C))
 
         fig, axs = plt.subplots(2,2, constrained_layout = True)
         fig.suptitle(f'Análisis P-T - {sustancia}', fontsize = 16, fontweight = 'bold')
@@ -71,19 +66,17 @@ for archivo in lista_archivos:
 
         axs[1,1].remove()
 
-        ruta_output = directorio.parent / 'datos' / 'output'
-        ruta_archivo_png = ruta_output / f'Grafico de la sustancia - {sustancia}'
-        ruta_output.mkdir(parents = True, exist_ok = True)
+        ruta_archivo_png = ruta_output / f'Grafico de la sustancia - {sustancia}.png'
         plt.savefig(ruta_archivo_png)
         plt.close(fig)
 
-        RMSE = np.sqrt((1/len(dict_datos[sustancia]))*np.sum((P_exp-P_modelo)**2))
+        RMSE = np.sqrt((1/len(datos))*np.sum((P_exp-P_modelo)**2))
         Rquad = 1 - (np.sum((P_exp - P_modelo)**2) / np.sum((P_exp - np.mean(P_exp))**2))
 
-        ruta_archivo_txt = ruta_output / f'Coeficientes de Antoine'
+        ruta_archivo_txt = ruta_output / f'Coeficientes de Antoine - {sustancia}.txt'
 
         fecha_hoy = datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')
-        with open(f'{ruta_archivo_txt} - {sustancia}.txt','w') as file:
+        with open(ruta_archivo_txt,'w') as file:
             text =  (
                     f'Fecha del analisis: {fecha_hoy}\n'
                     f'El coeficiente A: {A:.4f}\n'
@@ -96,11 +89,28 @@ for archivo in lista_archivos:
 
         list_sustancias_exito.append(sustancia)
 
-    except (RuntimeError, ValueError):
+        desv_estandar = np.sqrt(np.diag(cov)) 
+#En la diagonal principal de cov encontramos las varianzas de A, B y C, al aplicarles la raíz cuadrada obtenemos la desviación estándar
+
+        list_resumen.append({
+            'Sustancia':sustancia,
+            'A':A, 
+            'B':B, 
+            'C':C,
+            'Desviación estándar A':desv_estandar[0],
+            'Desviación estándar B':desv_estandar[1],
+            'Desviación estándar C':desv_estandar[2],
+            'R cuadrado':Rquad,
+            'RMSE':RMSE,
+            })
+
+    except (RuntimeError, ValueError, KeyError):
         print(f'No se pudieron calcular los parámetros de la sustancia {sustancia}')
         list_sustancias_fallo.append(sustancia)
 
         continue
+
+pd.DataFrame(list_resumen).to_excel(ruta_output / 'Resumen de Sustancias analizadas.xlsx', index = False)
 
 if len(list_sustancias_fallo) > 0:
     print(f'Las siguientes sustancias fueron analizadas y no se consiguió finalizar el análisis {list_sustancias_fallo}')

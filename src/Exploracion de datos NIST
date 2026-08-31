@@ -34,9 +34,14 @@ for archivo in lista_archivos:
     P_exp = datos['Pressure (MPa)']
     T_exp = datos['Temperature (K)']
 
+    T_max = max(T_exp)
+    T_min = min(T_exp)
+
     try:
         params, cov = curve_fit(model,T_exp, np.log10(P_exp), p0 = semilla)
-    
+        desv_estandar = np.sqrt(np.diag(cov))
+#En la diagonal principal de cov encontramos las varianzas de A, B y C, al aplicarles la raíz cuadrada obtenemos la desviación estándar
+
         A, B, C = params
 
         P_modelo = 10**(A - B/(T_exp + C))
@@ -73,39 +78,44 @@ for archivo in lista_archivos:
         RMSE = np.sqrt((1/len(datos))*np.sum((P_exp-P_modelo)**2))
         Rquad = 1 - (np.sum((P_exp - P_modelo)**2) / np.sum((P_exp - np.mean(P_exp))**2))
 
-        ruta_archivo_txt = ruta_output / f'Coeficientes de Antoine - {sustancia}.txt'
+        if Rquad > 0.9:
 
-        fecha_hoy = datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')
-        with open(ruta_archivo_txt,'w') as file:
-            text =  (
-                    f'Fecha del analisis: {fecha_hoy}\n'
-                    f'El coeficiente A: {A:.4f}\n'
-                    f'El coeficiente B: {B:.4f}\n'
-                    f'El coeficiente C: {C:.4f}\n'
-                    f'Estos coeficientes son de la sustancia: {sustancia}\n'
-                    f'Estos coeficientes fueron encontrados con un R cuadrado de {Rquad:.4f} y un RMSE de {RMSE:.4f}\n'
-            )
-            file.write(text)
+            list_sustancias_exito.append(sustancia)
+            ruta_archivo_txt = ruta_output / f'Coeficientes de Antoine - {sustancia}.txt'
 
-        list_sustancias_exito.append(sustancia)
+            fecha_hoy = datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')
+            with open(ruta_archivo_txt,'w') as file:
+                text =  (
+                        f'Fecha del analisis: {fecha_hoy}\n'
+                        f'Rango de Temperaturas: {[T_min,T_max]}\n'
+                        f'Coeficiente A: {A:.4f}\n'
+                        f'Desviacion estandar A: {desv_estandar[0]:.4f}\n'
+                        f'Coeficiente B: {B:.4f}\n'
+                        f'Desviacion estandar B: {desv_estandar[1]:.4f}\n'
+                        f'Coeficiente C: {C:.4f}\n'
+                        f'Desviacion estandar C: {desv_estandar[2]:.4f}\n'
+                        f'Estos coeficientes son de la sustancia: {sustancia}\n'
+                        f'Estos coeficientes fueron encontrados con un R cuadrado de {Rquad:.4f} y un RMSE de {RMSE:.4f}\n'
+                )
+                file.write(text)
 
-        desv_estandar = np.sqrt(np.diag(cov)) 
-#En la diagonal principal de cov encontramos las varianzas de A, B y C, al aplicarles la raíz cuadrada obtenemos la desviación estándar
-
-        list_resumen.append({
-            'Sustancia':sustancia,
-            'A':A, 
-            'B':B, 
-            'C':C,
-            'Desviación estándar A':desv_estandar[0],
-            'Desviación estándar B':desv_estandar[1],
-            'Desviación estándar C':desv_estandar[2],
-            'R cuadrado':Rquad,
-            'RMSE':RMSE,
-            })
+            list_resumen.append({
+                'Sustancia':sustancia,
+                'Rango de Temperaturas':[T_min,T_max],
+                'A':A.round(4), 
+                'B':B.round(4), 
+                'C':C.round(4),
+                'Desviación estándar A':desv_estandar[0].round(4),
+                'Desviación estándar B':desv_estandar[1].round(4),
+                'Desviación estándar C':desv_estandar[2].round(4),
+                'R cuadrado':Rquad.round(4),
+                'RMSE':RMSE.round(4),
+                })
+            
+        else:
+            list_sustancias_fallo.append(sustancia)
 
     except (RuntimeError, ValueError, KeyError):
-        print(f'No se pudieron calcular los parámetros de la sustancia {sustancia}')
         list_sustancias_fallo.append(sustancia)
 
         continue
@@ -113,7 +123,18 @@ for archivo in lista_archivos:
 pd.DataFrame(list_resumen).to_excel(ruta_output / 'Resumen de Sustancias analizadas.xlsx', index = False)
 
 if len(list_sustancias_fallo) > 0:
-    print(f'Las siguientes sustancias fueron analizadas y no se consiguió finalizar el análisis {list_sustancias_fallo}')
+
+    print(f'\n')
+    print('Las siguientes sustancias fueron analizadas y no se consiguió finalizar su análisis. Sugerencia: Ajusta la semilla inicial:')
+    for i in range(len(list_sustancias_fallo)):
+        print(list_sustancias_fallo[i])
+
+if len(list_sustancias_exito) > 0:
+
+    print(f'\n')
+    print('Las siguientes sustancias fueron analizadas con exito:')
+    for i in range(len(list_sustancias_exito)):
+        print(list_sustancias_exito[i])
 
 if len(list_sustancias_fallo) + len(list_sustancias_exito) != len(list_sustancias):
     print('No se analizaron todas las sustancias entradas')

@@ -4,6 +4,8 @@ Curve-fitting of vapor pressure and temperature to automatically calculate Antoi
 
 It uses Scipy (curve_fit), Pandas & Numpy, Matplotlib, Pathlib, datetime and openpyxl
 
+When executing the script, it asks for 3 numerical inputs. Each of those inputs are 3 first guesses of the 3 Antoine's Coefficients.
+
 Inside of folder 'datos', there must be 2 folders: 'input' & 'output'.
 In the same folder as 'datos', there must be the folder 'src' with the python script inside.
 The content of the input folder are .txt files that have a specific format: Substance_Name.txt

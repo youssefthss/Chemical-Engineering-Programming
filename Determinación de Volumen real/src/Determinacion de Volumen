@@ -92,8 +92,8 @@ for i in range(num_sustancias):
     _,V_SRK,e_relSRK = model_SRK(P,T,Tc,Pc,omega,V_real)
     _,V_PR,e_relPR = model_PR(P,T,Tc,Pc,omega,V_real)
 
-    list_e_rel.append((('GI',e_relGI), ('VdW', e_relVdW), ('RK', e_relRK), ('SRK', e_relSRK),('PR', e_relPR)))
-    list_e_rel = sorted(list_e_rel, key = lambda x: x[1])
+    list_e_rel = [('GI',e_relGI), ('VdW', e_relVdW), ('RK', e_relRK), ('SRK', e_relSRK), ('PR', e_relPR)]
+    list_e_rel = sorted(list_e_rel, key = lambda x: x[1]) #En la linea 95 e_rel puede ser una lista de 3 raices e_rel. Problema
     dict_e_rel[sustancia] = list_e_rel
 
     list_V.append((V_GI,V_VdW,V_RK,V_SRK,V_PR))
@@ -101,6 +101,4 @@ for i in range(num_sustancias):
     
 print('\nError relativo ordenado de menor a mayor:\n')
 
-for e_rel in list_e_rel:
-    print(e_rel)
-
+print(dict_e_rel)
